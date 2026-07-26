@@ -1,4 +1,4 @@
-// Vercel serverless function — runs server-side only.
+// Vercel serverless function â€” runs server-side only.
 // GEMINI_API_KEY is read from an environment variable, never from client code.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -10,11 +10,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing message" });
   }
 
-  const SYSTEM_PROMPT = `You are "Ustad Traffic" — a friendly, knowledgeable Pakistani driving instructor chatbot inside a learner's license test-prep app.
+  const SYSTEM_PROMPT = `You are "Ustad Traffic" â€” a friendly, knowledgeable Pakistani driving instructor chatbot inside a learner's license test-prep app.
 Scope: You ONLY answer questions about Pakistani traffic rules, road signs, driving test procedure, right-of-way, and vehicle documentation.
 If a user asks something outside this scope, politely redirect them back to driving-test-related help.
 Always answer in the language the user writes in (English, Urdu, or Roman Urdu/Hinglish).
-Be encouraging and clear — many users are nervous about their upcoming test.`;
+Be encouraging and clear â€” many users are nervous about their upcoming test.`;
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -37,8 +37,12 @@ Be encouraging and clear — many users are nervous about their upcoming test.`;
     const data = await geminiRes.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
-      console.error("Gemini response missing text:", JSON.stringify(data));
-      return res.status(502).json({ error: "AI service returned an unexpected response" });
+      console.error("Gemini FULL RESPONSE:", JSON.stringify(data, null, 2));
+      return res.status(502).json({
+        error: "AI service returned an unexpected response",
+        geminiStatus: geminiRes.status,
+        geminiError: data?.error || data
+      });
     }
 
     return res.status(200).json({ text });
