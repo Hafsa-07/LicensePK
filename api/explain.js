@@ -1,4 +1,4 @@
-// Vercel serverless function — runs server-side only.
+// Vercel serverless function â€” runs server-side only.
 // GEMINI_API_KEY is read from an environment variable, never from client code.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,8 +17,8 @@ Your job:
 - If the student got it right: briefly reinforce WHY it's correct, referencing the real Pakistani traffic rule or sign convention.
 - If the student got it wrong: gently point out the misconception in their chosen answer, then clearly explain the correct answer.
 - Keep it to 2-4 sentences. Practical, simple, no textbook jargon.
-- Match the student's language style — if they write in Roman Urdu/Hinglish, respond that way; otherwise use clear English.
-- Never invent specific legal penalty amounts or rules you're unsure of — say "this may vary by province, please confirm with your local traffic office" instead of guessing.`;
+- Match the student's language style â€” if they write in Roman Urdu/Hinglish, respond that way; otherwise use clear English.
+- Never invent specific legal penalty amounts or rules you're unsure of â€” say "this may vary by province, please confirm with your local traffic office" instead of guessing.`;
 
   const userMessage = `Question: ${questionEn}\nOptions: ${options.join(", ")}\nCorrect answer: ${correctAnswer}\nStudent chose: ${selectedAnswer}\nWas correct: ${wasCorrect}`;
 
@@ -43,8 +43,12 @@ Your job:
     const data = await geminiRes.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
-      console.error("Gemini response missing text:", JSON.stringify(data));
-      return res.status(502).json({ error: "AI service returned an unexpected response" });
+      console.error("Gemini FULL RESPONSE:", JSON.stringify(data, null, 2));
+      return res.status(502).json({
+        error: "AI service returned an unexpected response",
+        geminiStatus: geminiRes.status,
+        geminiError: data?.error || data
+      });
     }
 
     return res.status(200).json({ text });
