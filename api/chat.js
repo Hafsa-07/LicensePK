@@ -37,12 +37,8 @@ Be encouraging and clear â€” many users are nervous about their upcoming te
     const data = await geminiRes.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
-      console.error("Gemini FULL RESPONSE:", JSON.stringify(data, null, 2));
-      return res.status(502).json({
-        error: "AI service returned an unexpected response",
-        geminiStatus: geminiRes.status,
-        geminiError: data?.error || data
-      });
+      console.error("Gemini response missing text:", JSON.stringify(data));
+      return res.status(502).json({ error: "AI service returned an unexpected response" });
     }
 
     return res.status(200).json({ text });
