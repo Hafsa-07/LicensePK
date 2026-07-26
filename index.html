@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LicensePK — AI Driving Test Prep</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="questions.js"></script>
+<style>
+  body { font-family: 'Segoe UI', system-ui, sans-serif; }
+  .tab-active { background-color: #16a34a; color: white; }
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- ===================== AUTH SCREEN ===================== -->
+<div id="authScreen" class="min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
+    <h1 class="text-2xl font-bold text-center text-green-700 mb-1">🚗 LicensePK</h1>
+    <p class="text-center text-gray-500 mb-6 text-sm">AI Driving Test Prep for Pakistan</p>
+
+    <div id="authError" class="hidden text-red-600 text-sm mb-3 text-center"></div>
+
+    <input id="authEmail" type="email" placeholder="Email" class="w-full border rounded-lg p-3 mb-3">
+    <input id="authPassword" type="password" placeholder="Password" class="w-full border rounded-lg p-3 mb-4">
+
+    <button onclick="handleLogin()" class="w-full bg-green-600 text-white rounded-lg p-3 font-semibold mb-2">Log In</button>
+    <button onclick="handleSignup()" class="w-full bg-gray-200 text-gray-800 rounded-lg p-3 font-semibold">Create Account</button>
+  </div>
+</div>
+
+<!-- ===================== MAIN APP ===================== -->
+<div id="appScreen" class="hidden min-h-screen pb-20">
+
+  <!-- Header -->
+  <div class="bg-green-700 text-white p-4 flex justify-between items-center sticky top-0 z-10">
+    <h1 class="font-bold text-lg">🚗 LicensePK</h1>
+    <button onclick="handleLogout()" class="text-sm bg-green-800 px-3 py-1 rounded-lg">Logout</button>
+  </div>
+
+  <!-- HOME TAB -->
+  <div id="tab-home" class="tab-content p-4">
+    <h2 class="text-xl font-bold mb-4">Practice by Category</h2>
+    <div id="categoryGrid" class="grid grid-cols-2 gap-3"></div>
+
+    <h2 class="text-xl font-bold mt-6 mb-3">Quick Actions</h2>
+    <div class="space-y-2">
+      <button onclick="startMockTest()" class="w-full bg-blue-600 text-white p-4 rounded-xl text-left font-semibold">📝 Start Mock Test <span class="block text-xs font-normal opacity-80">20 random questions, timed</span></button>
+      <button onclick="showTab('mistakes')" class="w-full bg-white border p-4 rounded-xl text-left font-semibold">❌ My Mistakes <span id="mistakeCount" class="text-red-600"></span></button>
+      <button onclick="showTab('favorites')" class="w-full bg-white border p-4 rounded-xl text-left font-semibold">⭐ My Favorites <span id="favCount" class="text-yellow-600"></span></button>
+    </div>
+  </div>
+
+  <!-- PRACTICE / QUIZ TAB (shared by category practice, mock test, mistakes, favorites) -->
+  <div id="tab-quiz" class="tab-content p-4 hidden">
+    <div class="flex justify-between items-center mb-3">
+      <button onclick="showTab('home')" class="text-green-700 font-semibold">&larr; Back</button>
+      <span id="quizProgress" class="text-sm text-gray-500"></span>
+    </div>
+    <div id="quizContainer" class="bg-white rounded-2xl shadow p-5"></div>
+  </div>
+
+  <!-- ASK INSTRUCTOR TAB -->
+  <div id="tab-chat" class="tab-content p-4 hidden flex flex-col" style="height: calc(100vh - 64px);">
+    <h2 class="text-xl font-bold mb-3">🧑‍🏫 Ask Ustad Traffic</h2>
+    <div id="chatMessages" class="flex-1 overflow-y-auto bg-white rounded-xl p-3 space-y-3 mb-3"></div>
+    <div class="flex gap-2">
+      <input id="chatInput" placeholder="Type your question in English or Roman Urdu..." class="flex-1 border rounded-lg p-3" onkeypress="if(event.key==='Enter') sendChatMessage()">
+      <button onclick="sendChatMessage()" class="bg-green-600 text-white px-4 rounded-lg font-semibold">Send</button>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2">
+    <button onclick="showTab('home')" class="nav-btn flex flex-col items-center text-xs p-2 rounded-lg">🏠<span>Home</span></button>
+    <button onclick="startMockTest()" class="nav-btn flex flex-col items-center text-xs p-2 rounded-lg">📝<span>Mock Test</span></button>
+    <button onclick="showTab('chat')" class="nav-btn flex flex-col items-center text-xs p-2 rounded-lg">🧑‍🏫<span>Ask AI</span></button>
+  </div>
+</div>
+
+<script type="module">
+// ===================================================================
+// FIREBASE SETUP — replace firebaseConfig with YOUR values from
+// Firebase Console > Project Settings > Your apps > Web app
+// ===================================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc, deleteDoc, getDocs, collection, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCwbLY9nFTRKkvjPywtHRwK4x1G-ApKxoY",
+  authDomain: "licensepk-8c5cf.firebaseapp.com",
+  projectId: "licensepk-8c5cf",
+  storageBucket: "licensepk-8c5cf.firebasestorage.app",
+  messagingSenderId: "757802502079",
+  appId: "1:757802502079:web:20c4bc88f16aec6427430a",
+  measurementId: "G-PYY0SYQHD8"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ===================================================================
+// AI CALLS — routed through /api/explain and /api/chat serverless
+// functions so the Gemini key never touches the browser or the repo.
+// Set GEMINI_API_KEY as an environment variable in your Vercel project
+// settings (Project → Settings → Environment Variables) — do NOT put
+// it in this file.
+// ===================================================================
+async function callExplainAPI(payload) {
+  try {
+    const res = await fetch("/api/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data.text;
+  } catch (e) {
+    console.error(e);
+    return "Sorry, I couldn't generate a response right now. Please try again.";
+  }
+}
+
+async function callChatAPI(message) {
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data.text;
+  } catch (e) {
+    console.error(e);
+    return "Sorry, I couldn't generate a response right now. Please try again.";
+  }
+}
+
+// ===================================================================
+// GLOBAL STATE
+// ===================================================================
+let currentUser = null;
+let userMistakes = new Set();
+let userFavorites = new Set();
+let currentQuizQuestions = [];
+let currentQuizIndex = 0;
+let currentQuizScore = 0;
+let currentQuizMode = "practice"; // practice | mock | mistakes | favorites
+let chatHistory = [];
+
+// ===================================================================
+// AUTH HANDLERS
+// ===================================================================
+window.handleSignup = async function() {
+  const email = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    showAuthError(e.message);
+  }
+};
+
+window.handleLogin = async function() {
+  const email = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    showAuthError(e.message);
+  }
+};
+
+window.handleLogout = async function() {
+  await signOut(auth);
+};
+
+function showAuthError(msg) {
+  const el = document.getElementById("authError");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    document.getElementById("authScreen").classList.add("hidden");
+    document.getElementById("appScreen").classList.remove("hidden");
+    await loadUserData();
+    renderCategories();
+    showTab("home");
+  } else {
+    currentUser = null;
+    document.getElementById("authScreen").classList.remove("hidden");
+    document.getElementById("appScreen").classList.add("hidden");
+  }
+});
+
+// ===================================================================
+// LOAD USER DATA FROM FIRESTORE
+// ===================================================================
+async function loadUserData() {
+  userMistakes = new Set();
+  userFavorites = new Set();
+  const mistakesSnap = await getDocs(collection(db, "users", currentUser.uid, "mistakes"));
+  mistakesSnap.forEach(d => userMistakes.add(d.id));
+  const favSnap = await getDocs(collection(db, "users", currentUser.uid, "favorites"));
+  favSnap.forEach(d => userFavorites.add(d.id));
+  updateCounts();
+}
+
+function updateCounts() {
+  document.getElementById("mistakeCount").textContent = userMistakes.size ? `(${userMistakes.size})` : "";
+  document.getElementById("favCount").textContent = userFavorites.size ? `(${userFavorites.size})` : "";
+}
+
+async function recordMistake(questionId) {
+  userMistakes.add(questionId);
+  await setDoc(doc(db, "users", currentUser.uid, "mistakes", questionId), { timestamp: serverTimestamp() });
+  updateCounts();
+}
+
+async function clearMistake(questionId) {
+  userMistakes.delete(questionId);
+  await deleteDoc(doc(db, "users", currentUser.uid, "mistakes", questionId));
+  updateCounts();
+}
+
+window.toggleFavorite = async function(questionId) {
+  if (userFavorites.has(questionId)) {
+    userFavorites.delete(questionId);
+    await deleteDoc(doc(db, "users", currentUser.uid, "favorites", questionId));
+  } else {
+    userFavorites.add(questionId);
+    await setDoc(doc(db, "users", currentUser.uid, "favorites", questionId), {});
+  }
+  updateCounts();
+  renderQuestion();
+};
+
+async function saveQuizHistory(score, total) {
+  await setDoc(doc(collection(db, "users", currentUser.uid, "quiz_history")), {
+    score, total, timestamp: serverTimestamp()
+  });
+}
+
+// ===================================================================
+// TAB NAVIGATION
+// ===================================================================
+window.showTab = function(tab) {
+  document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+  if (tab === "home") document.getElementById("tab-home").classList.remove("hidden");
+  if (tab === "chat") {
+    document.getElementById("tab-chat").classList.remove("hidden");
+    if (chatHistory.length === 0) renderChat();
+  }
+  if (tab === "mistakes") startMistakeReview();
+  if (tab === "favorites") startFavoriteReview();
+};
+
+// ===================================================================
+// CATEGORIES
+// ===================================================================
+function renderCategories() {
+  const cats = [...new Set(QUESTIONS.map(q => q.category))];
+  const grid = document.getElementById("categoryGrid");
+  const icons = { "Road Signs": "🚸", "Traffic Rules": "📋", "Right of Way": "🔀", "Safe Driving Practices": "🛡️" };
+  grid.innerHTML = cats.map(c => `
+    <button onclick="startCategoryPractice('${c}')" class="bg-white border rounded-xl p-4 text-center shadow-sm">
+      <div class="text-3xl mb-1">${icons[c] || "📚"}</div>
+      <div class="font-semibold text-sm">${c}</div>
+    </button>
+  `).join("");
+}
+
+// ===================================================================
+// QUIZ ENGINE (shared logic for practice / mock / mistakes / favorites)
+// ===================================================================
+window.startCategoryPractice = function(category) {
+  currentQuizQuestions = QUESTIONS.filter(q => q.category === category);
+  currentQuizIndex = 0;
+  currentQuizScore = 0;
+  currentQuizMode = "practice";
+  showQuizTab();
+};
+
+window.startMockTest = function() {
+  const shuffled = [...QUESTIONS].sort(() => Math.random() - 0.5);
+  currentQuizQuestions = shuffled.slice(0, 20);
+  currentQuizIndex = 0;
+  currentQuizScore = 0;
+  currentQuizMode = "mock";
+  showQuizTab();
+};
+
+function startMistakeReview() {
+  currentQuizQuestions = QUESTIONS.filter(q => userMistakes.has(q.id));
+  currentQuizIndex = 0;
+  currentQuizScore = 0;
+  currentQuizMode = "mistakes";
+  if (currentQuizQuestions.length === 0) {
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+    document.getElementById("tab-quiz").classList.remove("hidden");
+    document.getElementById("quizContainer").innerHTML = `<p class="text-center text-gray-500 py-8">No mistakes yet — nice work! 🎉<br><button onclick="showTab('home')" class="mt-4 text-green-700 font-semibold">&larr; Back to Home</button></p>`;
+    return;
+  }
+  showQuizTab();
+}
+
+function startFavoriteReview() {
+  currentQuizQuestions = QUESTIONS.filter(q => userFavorites.has(q.id));
+  currentQuizIndex = 0;
+  currentQuizScore = 0;
+  currentQuizMode = "favorites";
+  if (currentQuizQuestions.length === 0) {
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+    document.getElementById("tab-quiz").classList.remove("hidden");
+    document.getElementById("quizContainer").innerHTML = `<p class="text-center text-gray-500 py-8">No favorites bookmarked yet.<br><button onclick="showTab('home')" class="mt-4 text-green-700 font-semibold">&larr; Back to Home</button></p>`;
+    return;
+  }
+  showQuizTab();
+}
+
+function showQuizTab() {
+  document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+  document.getElementById("tab-quiz").classList.remove("hidden");
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = currentQuizQuestions[currentQuizIndex];
+  document.getElementById("quizProgress").textContent = `${currentQuizIndex + 1} / ${currentQuizQuestions.length}`;
+  const isFav = userFavorites.has(q.id);
+  document.getElementById("quizContainer").innerHTML = `
+    <div class="flex justify-between items-start mb-2">
+      <span class="text-xs bg-gray-200 px-2 py-1 rounded-full">${q.category}</span>
+      <button onclick="toggleFavorite('${q.id}')" class="text-2xl">${isFav ? "⭐" : "☆"}</button>
+    </div>
+    <p class="font-semibold text-lg mb-1">${q.question_en}</p>
+    <p class="text-gray-500 text-sm mb-4">${q.question_ur}</p>
+    <div id="optionsContainer" class="space-y-2">
+      ${q.options.map((opt, i) => `
+        <button onclick="selectAnswer(${i})" class="option-btn w-full text-left border rounded-lg p-3 hover:bg-gray-50">${opt}</button>
+      `).join("")}
+    </div>
+    <div id="feedbackBox" class="mt-4 hidden"></div>
+  `;
+}
+
+window.selectAnswer = async function(selectedIndex) {
+  const q = currentQuizQuestions[currentQuizIndex];
+  const buttons = document.querySelectorAll(".option-btn");
+  buttons.forEach(b => b.onclick = null);
+  const correct = selectedIndex === q.correctIndex;
+
+  buttons[q.correctIndex].classList.add("bg-green-100", "border-green-500");
+  if (!correct) buttons[selectedIndex].classList.add("bg-red-100", "border-red-500");
+
+  if (correct) {
+    currentQuizScore++;
+    if (currentQuizMode === "mistakes") await clearMistake(q.id);
+  } else {
+    await recordMistake(q.id);
+  }
+
+  const feedbackBox = document.getElementById("feedbackBox");
+  feedbackBox.classList.remove("hidden");
+  feedbackBox.innerHTML = `
+    <div class="bg-gray-50 rounded-lg p-3 mb-2">
+      <p class="text-sm font-semibold">${correct ? "✅ Correct!" : "❌ Not quite"}</p>
+      <p class="text-sm text-gray-600 mt-1">${q.explanation}</p>
+    </div>
+    <button id="aiExplainBtn" onclick="explainWithAI(${selectedIndex})" class="text-sm text-blue-600 font-semibold mb-3">🤖 Get AI Explanation</button>
+    <div id="aiExplainBox" class="hidden bg-blue-50 rounded-lg p-3 text-sm mb-3"></div>
+    <button onclick="nextQuestion()" class="w-full bg-green-600 text-white rounded-lg p-3 font-semibold">
+      ${currentQuizIndex + 1 < currentQuizQuestions.length ? "Next Question →" : "Finish"}
+    </button>
+  `;
+};
+
+window.explainWithAI = async function(selectedIndex) {
+  const q = currentQuizQuestions[currentQuizIndex];
+  const box = document.getElementById("aiExplainBox");
+  const btn = document.getElementById("aiExplainBtn");
+  btn.textContent = "Thinking...";
+  box.classList.remove("hidden");
+  box.textContent = "Loading explanation...";
+
+  const explanation = await callExplainAPI({
+    questionEn: q.question_en,
+    options: q.options,
+    correctAnswer: q.options[q.correctIndex],
+    selectedAnswer: q.options[selectedIndex],
+    wasCorrect: selectedIndex === q.correctIndex
+  });
+  box.textContent = explanation;
+  btn.classList.add("hidden");
+};
+
+window.nextQuestion = async function() {
+  currentQuizIndex++;
+  if (currentQuizIndex >= currentQuizQuestions.length) {
+    if (currentQuizMode === "mock") await saveQuizHistory(currentQuizScore, currentQuizQuestions.length);
+    document.getElementById("quizContainer").innerHTML = `
+      <div class="text-center py-6">
+        <div class="text-4xl mb-2">${currentQuizScore >= currentQuizQuestions.length * 0.7 ? "🎉" : "📚"}</div>
+        <p class="text-xl font-bold">Score: ${currentQuizScore} / ${currentQuizQuestions.length}</p>
+        <p class="text-gray-500 mt-2">${currentQuizScore >= currentQuizQuestions.length * 0.7 ? "Great job! You're ready." : "Keep practicing — review your mistakes."}</p>
+        <button onclick="showTab('home')" class="mt-4 bg-green-600 text-white rounded-lg px-6 py-3 font-semibold">Back to Home</button>
+      </div>
+    `;
+    return;
+  }
+  renderQuestion();
+};
+
+// ===================================================================
+// AI CHAT ("Ask the Instructor")
+// ===================================================================
+function renderChat() {
+  document.getElementById("chatMessages").innerHTML = `
+    <div class="bg-green-100 rounded-lg p-3 text-sm max-w-[85%]">
+      Assalam-o-Alaikum! I'm Ustad Traffic. Ask me anything about road signs, traffic rules, or your upcoming license test.
+    </div>
+  `;
+}
+
+window.sendChatMessage = async function() {
+  const input = document.getElementById("chatInput");
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = "";
+
+  const chatBox = document.getElementById("chatMessages");
+  chatBox.innerHTML += `<div class="bg-blue-600 text-white rounded-lg p-3 text-sm max-w-[85%] ml-auto">${msg}</div>`;
+  chatBox.innerHTML += `<div id="typingIndicator" class="bg-gray-100 rounded-lg p-3 text-sm max-w-[85%]">Typing...</div>`;
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  const reply = await callChatAPI(msg);
+  document.getElementById("typingIndicator").outerHTML = `<div class="bg-green-100 rounded-lg p-3 text-sm max-w-[85%]">${reply}</div>`;
+  chatBox.scrollTop = chatBox.scrollHeight;
+};
+</script>
+</body>
+</html>
