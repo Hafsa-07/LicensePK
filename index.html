@@ -93,6 +93,400 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
+  apiKey: "AIzaSyCwbLY9nFTRKkvjPywtHRwK4x1G-ApKxoY",
+  authDomain: "licensepk-8c5cf.firebaseapp.com",
+  projectId: "licensepk-8c5cf",
+  storageBucket: "licensepk-8c5cf.firebasestorage.app",
+  messagingSenderId: "757802502079",
+  appId: "1:757802502079:web:20c4bc88f16aec6427430a",
+  measurementId: "G-PYY0SYQHD8"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ===================================================================
+// AI CALLS — routed through /api/explain and /api/chat serverless
+// functions so the Gemini key never touches the browser or the repo.
+// Set GEMINI_API_KEY as an environment variable in your Vercel project
+// settings (Project → Settings → Environment Variables) — do NOT put
+// it in this file.
+// ===================================================================
+async function callExplainAPI(payload) {
+  try {
+    const res = await fetch("/api/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data.text;
+  } catch (e) {
+    console.error(e);
+    return "Sorry, I couldn't generate a response right now. Please try again.";
+  }
+}
+
+async function callChatAPI(message) {
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data.text;
+  } catch (e) {
+    console.error(e);
+    return "Sorry, I couldn't generate a response right now. Please try again.";
+  }
+}
+
+// ===================================================================
+// SIGN ICONS — original inline SVGs, not scraped images. Matches the
+// shape/color conventions each Road Signs question describes.
+// ===================================================================
+const SIGN_ICONS = {
+  noEntry: `<svg viewBox="0 0 100 100" width="72" height="72"><circle cx="50" cy="50" r="44" fill="#dc2626"/><circle cx="50" cy="50" r="44" fill="none" stroke="white" stroke-width="4"/><rect x="20" y="43" width="60" height="14" fill="white"/></svg>`,
+  stop: `<svg viewBox="0 0 100 100" width="72" height="72"><polygon points="30,6 70,6 94,30 94,70 70,94 30,94 6,70 6,30" fill="#dc2626" stroke="white" stroke-width="3"/><text x="50" y="60" font-size="22" font-weight="bold" fill="white" text-anchor="middle" font-family="Arial">STOP</text></svg>`,
+  warningTriangle: `<svg viewBox="0 0 100 100" width="72" height="72"><polygon points="50,8 94,90 6,90" fill="white" stroke="#dc2626" stroke-width="7"/><text x="50" y="78" font-size="46" font-weight="bold" fill="#dc2626" text-anchor="middle" font-family="Arial">!</text></svg>`,
+  mandatoryBlue: `<svg viewBox="0 0 100 100" width="72" height="72"><circle cx="50" cy="50" r="44" fill="#1d4ed8"/><path d="M50 25 L50 65 M35 50 L50 65 L65 50" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  noOvertaking: `<svg viewBox="0 0 100 100" width="72" height="72"><circle cx="50" cy="50" r="44" fill="white" stroke="#dc2626" stroke-width="6"/><rect x="20" y="42" width="26" height="16" rx="3" fill="black"/><rect x="52" y="34" width="26" height="16" rx="3" fill="#4b5563"/><line x1="15" y1="15" x2="85" y2="85" stroke="#dc2626" stroke-width="6"/></svg>`,
+  parking: `<svg viewBox="0 0 100 100" width="72" height="72"><rect x="8" y="8" width="84" height="84" rx="8" fill="#1d4ed8"/><rect x="8" y="8" width="84" height="84" rx="8" fill="none" stroke="white" stroke-width="3"/><text x="50" y="70" font-size="52" font-weight="bold" fill="white" text-anchor="middle" font-family="Arial">P</text></svg>`,
+  pedestrianCrossing: `<svg viewBox="0 0 100 100" width="72" height="72"><polygon points="50,4 96,50 50,96 4,50" fill="#facc15" stroke="black" stroke-width="2"/><circle cx="50" cy="34" r="7" fill="black"/><path d="M50 42 L50 62 M50 48 L36 44 M50 48 L64 44 M50 62 L40 82 M50 62 L60 82" stroke="black" stroke-width="5" fill="none" stroke-linecap="round"/></svg>`,
+  twoWayTraffic: `<svg viewBox="0 0 100 100" width="72" height="72"><polygon points="50,4 96,50 50,96 4,50" fill="#facc15" stroke="black" stroke-width="2"/><path d="M30 35 L70 35 M62 27 L70 35 L62 43" fill="none" stroke="black" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M70 65 L30 65 M38 57 L30 65 L38 73" fill="none" stroke="black" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  fuelStation: `<svg viewBox="0 0 100 100" width="72" height="72"><rect x="8" y="8" width="84" height="84" rx="8" fill="#1d4ed8"/><rect x="30" y="30" width="26" height="46" fill="white"/><rect x="34" y="36" width="18" height="14" fill="#1d4ed8"/><path d="M56 50 h10 v10 h6 v20" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+};
+
+function renderSignIcon(iconKey) {
+  if (!iconKey || !SIGN_ICONS[iconKey]) return "";
+  return `<div class="flex justify-center mb-3">${SIGN_ICONS[iconKey]}</div>`;
+}
+
+
+let currentUser = null;
+let userMistakes = new Set();
+let userFavorites = new Set();
+let currentQuizQuestions = [];
+let currentQuizIndex = 0;
+let currentQuizScore = 0;
+let currentQuizMode = "practice"; // practice | mock | mistakes | favorites
+let chatHistory = [];
+
+// ===================================================================
+// AUTH HANDLERS
+// ===================================================================
+window.handleSignup = async function() {
+  const email = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    showAuthError(e.message);
+  }
+};
+
+window.handleLogin = async function() {
+  const email = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    showAuthError(e.message);
+  }
+};
+
+window.handleLogout = async function() {
+  await signOut(auth);
+};
+
+function showAuthError(msg) {
+  const el = document.getElementById("authError");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    document.getElementById("authScreen").classList.add("hidden");
+    document.getElementById("appScreen").classList.remove("hidden");
+    await loadUserData();
+    renderCategories();
+    showTab("home");
+  } else {
+    currentUser = null;
+    document.getElementById("authScreen").classList.remove("hidden");
+    document.getElementById("appScreen").classList.add("hidden");
+  }
+});
+
+// ===================================================================
+// LOAD USER DATA FROM FIRESTORE
+// ===================================================================
+async function loadUserData() {
+  userMistakes = new Set();
+  userFavorites = new Set();
+  const mistakesSnap = await getDocs(collection(db, "users", currentUser.uid, "mistakes"));
+  mistakesSnap.forEach(d => userMistakes.add(d.id));
+  const favSnap = await getDocs(collection(db, "users", currentUser.uid, "favorites"));
+  favSnap.forEach(d => userFavorites.add(d.id));
+  updateCounts();
+}
+
+function updateCounts() {
+  document.getElementById("mistakeCount").textContent = userMistakes.size ? `(${userMistakes.size})` : "";
+  document.getElementById("favCount").textContent = userFavorites.size ? `(${userFavorites.size})` : "";
+}
+
+async function recordMistake(questionId) {
+  userMistakes.add(questionId);
+  await setDoc(doc(db, "users", currentUser.uid, "mistakes", questionId), { timestamp: serverTimestamp() });
+  updateCounts();
+}
+
+async function clearMistake(questionId) {
+  userMistakes.delete(questionId);
+  await deleteDoc(doc(db, "users", currentUser.uid, "mistakes", questionId));
+  updateCounts();
+}
+
+window.toggleFavorite = async function(questionId) {
+  if (userFavorites.has(questionId)) {
+    userFavorites.delete(questionId);
+    await deleteDoc(doc(db, "users", currentUser.uid, "favorites", questionId));
+  } else {
+    userFavorites.add(questionId);
+    await setDoc(doc(db, "users", currentUser.uid, "favorites", questionId), {});
+  }
+  updateCounts();
+  renderQuestion();
+};
+
+async function saveQuizHistory(score, total) {
+  await setDoc(doc(collection(db, "users", currentUser.uid, "quiz_history")), {
+    score, total, timestamp: serverTimestamp()
+  });
+}
+
+// ===================================================================
+// TAB NAVIGATION
+// ===================================================================
+window.showTab = function(tab) {
+  document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+  if (tab === "home") document.getElementById("tab-home").classList.remove("hidden");
+  if (tab === "chat") {
+    document.getElementById("tab-chat").classList.remove("hidden");
+    if (chatHistory.length === 0) renderChat();
+  }
+  if (tab === "mistakes") startMistakeReview();
+  if (tab === "favorites") startFavoriteReview();
+};
+
+// ===================================================================
+// CATEGORIES
+// ===================================================================
+function renderCategories() {
+  const cats = [...new Set(QUESTIONS.map(q => q.category))];
+  const grid = document.getElementById("categoryGrid");
+  const icons = { "Road Signs": "🚸", "Traffic Rules": "📋", "Right of Way": "🔀", "Safe Driving Practices": "🛡️" };
+  grid.innerHTML = cats.map(c => `
+    <button onclick="startCategoryPractice('${c}')" class="bg-white border rounded-xl p-4 text-center shadow-sm">
+      <div class="text-3xl mb-1">${icons[c] || "📚"}</div>
+      <div class="font-semibold text-sm">${c}</div>
+    </button>
+  `).join("");
+}
+
+// ===================================================================
+// QUIZ ENGINE (shared logic for practice / mock / mistakes / favorites)
+// ===================================================================
+window.startCategoryPractice = function(category) {
+  const matched = QUESTIONS.filter(q => q.category === category);
+  currentQuizQuestions = [...matched].sort(() => Math.random() - 0.5);
+  currentQuizIndex = 0;
+  currentQuizScore = 0;
+  currentQuizMode = "practice";
+  showQuizTab();
+};
+
+window.startMockTest = function() {
+  const shuffled = [...QUESTIONS].sort(() => Math.random() - 0.5);
+  currentQuizQuestions = shuffled.slice(0, 20);
+  currentQuizIndex = 0;
+  currentQuizScore = 0;
+  currentQuizMode = "mock";
+  showQuizTab();
+};
+
+function startMistakeReview() {
+  currentQuizQuestions = QUESTIONS.filter(q => userMistakes.has(q.id));
+  currentQuizIndex = 0;
+  currentQuizScore = 0;
+  currentQuizMode = "mistakes";
+  if (currentQuizQuestions.length === 0) {
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+    document.getElementById("tab-quiz").classList.remove("hidden");
+    document.getElementById("quizContainer").innerHTML = `<p class="text-center text-gray-500 py-8">No mistakes yet — nice work! 🎉<br><button onclick="showTab('home')" class="mt-4 text-green-700 font-semibold">&larr; Back to Home</button></p>`;
+    return;
+  }
+  showQuizTab();
+}
+
+function startFavoriteReview() {
+  currentQuizQuestions = QUESTIONS.filter(q => userFavorites.has(q.id));
+  currentQuizIndex = 0;
+  currentQuizScore = 0;
+  currentQuizMode = "favorites";
+  if (currentQuizQuestions.length === 0) {
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+    document.getElementById("tab-quiz").classList.remove("hidden");
+    document.getElementById("quizContainer").innerHTML = `<p class="text-center text-gray-500 py-8">No favorites bookmarked yet.<br><button onclick="showTab('home')" class="mt-4 text-green-700 font-semibold">&larr; Back to Home</button></p>`;
+    return;
+  }
+  showQuizTab();
+}
+
+function showQuizTab() {
+  document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+  document.getElementById("tab-quiz").classList.remove("hidden");
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = currentQuizQuestions[currentQuizIndex];
+  document.getElementById("quizProgress").textContent = `${currentQuizIndex + 1} / ${currentQuizQuestions.length}`;
+  const isFav = userFavorites.has(q.id);
+  document.getElementById("quizContainer").innerHTML = `
+    <div class="flex justify-between items-start mb-2">
+      <span class="text-xs bg-gray-200 px-2 py-1 rounded-full">${q.category}</span>
+      <button onclick="toggleFavorite('${q.id}')" class="text-2xl">${isFav ? "⭐" : "☆"}</button>
+    </div>
+    ${renderSignIcon(q.iconKey)}
+    <p class="font-semibold text-lg mb-1">${q.question_en}</p>
+    <p class="text-gray-500 text-sm mb-4">${q.question_ur}</p>
+    <div id="optionsContainer" class="space-y-2">
+      ${q.options.map((opt, i) => `
+        <button onclick="selectAnswer(${i})" class="option-btn w-full text-left border rounded-lg p-3 hover:bg-gray-50">${opt}</button>
+      `).join("")}
+    </div>
+    <div id="feedbackBox" class="mt-4 hidden"></div>
+  `;
+}
+
+window.selectAnswer = async function(selectedIndex) {
+  const q = currentQuizQuestions[currentQuizIndex];
+  const buttons = document.querySelectorAll(".option-btn");
+  buttons.forEach(b => b.onclick = null);
+  const correct = selectedIndex === q.correctIndex;
+
+  buttons[q.correctIndex].classList.add("bg-green-100", "border-green-500");
+  if (!correct) buttons[selectedIndex].classList.add("bg-red-100", "border-red-500");
+
+  if (correct) {
+    currentQuizScore++;
+    if (currentQuizMode === "mistakes") await clearMistake(q.id);
+  } else {
+    await recordMistake(q.id);
+  }
+
+  const feedbackBox = document.getElementById("feedbackBox");
+  feedbackBox.classList.remove("hidden");
+  feedbackBox.innerHTML = `
+    <div class="bg-gray-50 rounded-lg p-3 mb-2">
+      <p class="text-sm font-semibold">${correct ? "✅ Correct!" : "❌ Not quite"}</p>
+      <p class="text-sm text-gray-600 mt-1">${q.explanation}</p>
+    </div>
+    <button id="aiExplainBtn" onclick="explainWithAI(${selectedIndex})" class="text-sm text-blue-600 font-semibold mb-3">🤖 Get AI Explanation</button>
+    <div id="aiExplainBox" class="hidden bg-blue-50 rounded-lg p-3 text-sm mb-3"></div>
+    <button onclick="nextQuestion()" class="w-full bg-green-600 text-white rounded-lg p-3 font-semibold">
+      ${currentQuizIndex + 1 < currentQuizQuestions.length ? "Next Question →" : "Finish"}
+    </button>
+  `;
+};
+
+window.explainWithAI = async function(selectedIndex) {
+  const q = currentQuizQuestions[currentQuizIndex];
+  const box = document.getElementById("aiExplainBox");
+  const btn = document.getElementById("aiExplainBtn");
+  btn.textContent = "Thinking...";
+  box.classList.remove("hidden");
+  box.textContent = "Loading explanation...";
+
+  const explanation = await callExplainAPI({
+    questionEn: q.question_en,
+    options: q.options,
+    correctAnswer: q.options[q.correctIndex],
+    selectedAnswer: q.options[selectedIndex],
+    wasCorrect: selectedIndex === q.correctIndex
+  });
+  box.textContent = explanation;
+  btn.classList.add("hidden");
+};
+
+window.nextQuestion = async function() {
+  currentQuizIndex++;
+  if (currentQuizIndex >= currentQuizQuestions.length) {
+    if (currentQuizMode === "mock") await saveQuizHistory(currentQuizScore, currentQuizQuestions.length);
+    document.getElementById("quizContainer").innerHTML = `
+      <div class="text-center py-6">
+        <div class="text-4xl mb-2">${currentQuizScore >= currentQuizQuestions.length * 0.7 ? "🎉" : "📚"}</div>
+        <p class="text-xl font-bold">Score: ${currentQuizScore} / ${currentQuizQuestions.length}</p>
+        <p class="text-gray-500 mt-2">${currentQuizScore >= currentQuizQuestions.length * 0.7 ? "Great job! You're ready." : "Keep practicing — review your mistakes."}</p>
+        <button onclick="showTab('home')" class="mt-4 bg-green-600 text-white rounded-lg px-6 py-3 font-semibold">Back to Home</button>
+      </div>
+    `;
+    return;
+  }
+  renderQuestion();
+};
+
+// ===================================================================
+// AI CHAT ("Ask the Instructor")
+// ===================================================================
+function renderChat() {
+  document.getElementById("chatMessages").innerHTML = `
+    <div class="bg-green-100 rounded-lg p-3 text-sm max-w-[85%]">
+      Assalam-o-Alaikum! I'm Ustad Traffic. Ask me anything about road signs, traffic rules, or your upcoming license test.
+    </div>
+  `;
+}
+
+window.sendChatMessage = async function() {
+  const input = document.getElementById("chatInput");
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = "";
+
+  const chatBox = document.getElementById("chatMessages");
+  chatBox.innerHTML += `<div class="bg-blue-600 text-white rounded-lg p-3 text-sm max-w-[85%] ml-auto">${msg}</div>`;
+  chatBox.innerHTML += `<div id="typingIndicator" class="bg-gray-100 rounded-lg p-3 text-sm max-w-[85%]">Typing...</div>`;
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  const reply = await callChatAPI(msg);
+  document.getElementById("typingIndicator").outerHTML = `<div class="bg-green-100 rounded-lg p-3 text-sm max-w-[85%]">${reply}</div>`;
+  chatBox.scrollTop = chatBox.scrollHeight;
+};
+</script>
+</body>
+</html>
+// ===================================================================
+// FIREBASE SETUP — replace firebaseConfig with YOUR values from
+// Firebase Console > Project Settings > Your apps > Web app
+// ===================================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc, deleteDoc, getDocs, collection, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_PROJECT.firebaseapp.com",
   projectId: "YOUR_PROJECT_ID",
