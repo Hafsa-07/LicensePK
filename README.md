@@ -1,4 +1,4 @@
-<img width="865" height="697" alt="image" src="https://github.com/user-attachments/assets/882f871d-c4fd-49ab-824b-072c4c3a5811" /># LicensePK — AI-Powered Driving Test Prep for Pakistan
+# LicensePK — AI-Powered Driving Test Prep for Pakistan
 
 ## What it does & who it's for
 LicensePK is a web app that helps people in Pakistan prepare for their learner's driving license test (traffic signs, rules, right-of-way, and safe driving practices). Most people currently prepare using scattered WhatsApp PDFs, unofficial YouTube videos, or no structured material at all. LicensePK solves this with a structured practice system **plus an AI driving instructor** that explains answers and answers free-form questions in English, Urdu, or Roman Urdu/Hinglish.
