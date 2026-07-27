@@ -251,7 +251,12 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     document.getElementById("authScreen").classList.add("hidden");
     document.getElementById("appScreen").classList.remove("hidden");
-    await loadUserData();
+    try {
+      await loadUserData();
+    } catch (e) {
+      console.error("Failed to load user data (mistakes/favorites):", e);
+      // Don't let a Firestore error block the rest of the app from showing.
+    }
     renderCategories();
     showTab("home");
   } else {
