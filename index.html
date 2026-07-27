@@ -252,10 +252,13 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById("authScreen").classList.add("hidden");
     document.getElementById("appScreen").classList.remove("hidden");
     try {
-      await loadUserData();
+      await Promise.race([
+        loadUserData(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore load timed out after 6s")), 6000))
+      ]);
     } catch (e) {
       console.error("Failed to load user data (mistakes/favorites):", e);
-      // Don't let a Firestore error block the rest of the app from showing.
+      // Don't let a hung or failing Firestore connection block the rest of the app from showing.
     }
     renderCategories();
     showTab("home");
@@ -326,7 +329,10 @@ window.showTab = function(tab) {
   }
   if (tab === "mistakes") startMistakeReview();
   if (tab === "favorites") startFavoriteReview();
-  if (tab === "notes") renderNotes();
+  if (tab === "notes") {
+    document.getElementById("tab-notes").classList.remove("hidden");
+    renderNotes();
+  }
 };
 
 // ===================================================================
