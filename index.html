@@ -40,6 +40,11 @@
 
   <!-- HOME TAB -->
   <div id="tab-home" class="tab-content p-4">
+    <button onclick="showTab('notes')" class="w-full bg-amber-500 text-white p-4 rounded-xl text-left font-semibold mb-4 shadow-sm border-2 border-amber-600">
+      📖 New to Driving? Start Here
+      <span class="block text-xs font-normal opacity-90 mt-1">Learn road signs and rules before you practice</span>
+    </button>
+
     <h2 class="text-xl font-bold mb-4">Practice by Category</h2>
     <div id="categoryGrid" class="grid grid-cols-2 gap-3"></div>
 
@@ -49,6 +54,15 @@
       <button onclick="showTab('mistakes')" class="w-full bg-white border p-4 rounded-xl text-left font-semibold">❌ My Mistakes <span id="mistakeCount" class="text-red-600"></span></button>
       <button onclick="showTab('favorites')" class="w-full bg-white border p-4 rounded-xl text-left font-semibold">⭐ My Favorites <span id="favCount" class="text-yellow-600"></span></button>
     </div>
+  </div>
+
+  <!-- STUDY NOTES TAB (lightweight Learn section — reuses existing question bank, no new content) -->
+  <div id="tab-notes" class="tab-content p-4 hidden">
+    <div class="flex justify-between items-center mb-3">
+      <button onclick="showTab('home')" class="text-green-700 font-semibold">&larr; Back</button>
+      <span class="text-sm text-gray-500">Study Notes</span>
+    </div>
+    <div id="notesContainer" class="space-y-6"></div>
   </div>
 
   <!-- PRACTICE / QUIZ TAB (shared by category practice, mock test, mistakes, favorites) -->
@@ -164,6 +178,29 @@ const SIGN_ICONS = {
 function renderSignIcon(iconKey) {
   if (!iconKey || !SIGN_ICONS[iconKey]) return "";
   return `<div class="flex justify-center mb-3">${SIGN_ICONS[iconKey]}</div>`;
+}
+
+// Maps specific phrases to icon keys. Deliberately narrow (requires "sign"
+// or a specific compound phrase) to avoid false-matching ordinary words
+// like "stop" or "parking" used in a non-sign sentence.
+const SIGN_KEYWORDS = [
+  { pattern: /no[\s-]?entry sign/i, iconKey: "noEntry" },
+  { pattern: /stop sign/i, iconKey: "stop" },
+  { pattern: /warning (sign|triangle)/i, iconKey: "warningTriangle" },
+  { pattern: /mandatory (blue )?sign/i, iconKey: "mandatoryBlue" },
+  { pattern: /no overtaking( sign)?/i, iconKey: "noOvertaking" },
+  { pattern: /overtaking (is )?(prohibited|banned|not allowed)/i, iconKey: "noOvertaking" },
+  { pattern: /parking sign/i, iconKey: "parking" },
+  { pattern: /(pedestrian|zebra) crossing/i, iconKey: "pedestrianCrossing" },
+  { pattern: /two[\s-]way traffic/i, iconKey: "twoWayTraffic" },
+  { pattern: /(fuel|petrol) (station|pump)/i, iconKey: "fuelStation" }
+];
+
+function detectSignIcon(text) {
+  for (const { pattern, iconKey } of SIGN_KEYWORDS) {
+    if (pattern.test(text)) return iconKey;
+  }
+  return null;
 }
 
 
@@ -284,7 +321,35 @@ window.showTab = function(tab) {
   }
   if (tab === "mistakes") startMistakeReview();
   if (tab === "favorites") startFavoriteReview();
+  if (tab === "notes") renderNotes();
 };
+
+// ===================================================================
+// STUDY NOTES — reference cards grouped by category, reusing the
+// existing question bank (question + explanation + icon if present).
+// No quiz logic here; this is read-only reference material.
+// ===================================================================
+function renderNotes() {
+  const cats = [...new Set(QUESTIONS.map(q => q.category))];
+  const container = document.getElementById("notesContainer");
+  container.innerHTML = cats.map(cat => {
+    const items = QUESTIONS.filter(q => q.category === cat);
+    return `
+      <div>
+        <h3 class="text-lg font-bold mb-2">${cat}</h3>
+        <div class="space-y-3">
+          ${items.map(q => `
+            <div class="bg-white rounded-xl shadow-sm p-4">
+              ${renderSignIcon(q.iconKey)}
+              <p class="font-semibold text-sm mb-1">${q.question_en}</p>
+              <p class="text-sm text-gray-600">${q.explanation}</p>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
 
 // ===================================================================
 // CATEGORIES
@@ -467,7 +532,9 @@ window.sendChatMessage = async function() {
   chatBox.scrollTop = chatBox.scrollHeight;
 
   const reply = await callChatAPI(msg);
-  document.getElementById("typingIndicator").outerHTML = `<div class="bg-green-100 rounded-lg p-3 text-sm max-w-[85%]">${reply}</div>`;
+  const matchedIcon = detectSignIcon(reply);
+  const iconHtml = matchedIcon ? renderSignIcon(matchedIcon) : "";
+  document.getElementById("typingIndicator").outerHTML = `<div class="bg-green-100 rounded-lg p-3 text-sm max-w-[85%]">${iconHtml}${reply}</div>`;
   chatBox.scrollTop = chatBox.scrollHeight;
 };
 </script>
