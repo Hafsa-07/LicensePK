@@ -4,15 +4,18 @@
 LicensePK is a web app that helps people in Pakistan prepare for their learner's driving license test (traffic signs, rules, right-of-way, and safe driving practices). Most people currently prepare using scattered WhatsApp PDFs, unofficial YouTube videos, or no structured material at all. LicensePK solves this with a structured practice system **plus an AI driving instructor** that explains answers and answers free-form questions in English, Urdu, or Roman Urdu/Hinglish.
 
 ## Live Demo
-🔗 license-kt995eqy8-hafsa8.vercel.app
+🔗 https://license-pk.vercel.app
 
 ## Features
-- **Practice by Category** — Road Signs, Traffic Rules, Right of Way, Safe Driving Practices
+- **New to Driving? Start Here** — a beginner-first entry point on the Home screen that opens Study Notes before pushing new users straight into quizzes
+- **Study Notes** — a reference view grouped by category (Road Signs, Traffic Rules, Right of Way, Safe Driving Practices), showing each question's explanation and sign icon for review before practicing
+- **Road Sign Icons** — original inline SVG icons (Stop, No Entry, Warning Triangle, Mandatory Blue, No Overtaking, Parking, Pedestrian Crossing, Two-Way Traffic, Fuel Station) shown alongside every Road Signs question in Practice, Mock Test, and Study Notes
+- **Practice by Category** — Road Signs, Traffic Rules, Right of Way, Safe Driving Practices (shuffled each time, so practice doesn't repeat the same fixed order)
 - **Mock Test** — 20 random questions, scored at the end, saved to quiz history
 - **My Mistakes** — automatically tracks incorrectly answered questions and lets you retry only those
 - **My Favorites** — bookmark tricky questions for later review
 - **AI Explanation** — tap "Get AI Explanation" on any question for a personalized, context-aware breakdown of why an answer is right or wrong
-- **Ask the Instructor (Ustad Traffic)** — a free-form AI chat tutor scoped to Pakistani driving rules, signs, and test procedure
+- **Ask the Instructor (Ustad Traffic)** — a free-form AI chat tutor scoped to Pakistani driving rules, signs, and test procedure, which also displays the relevant sign icon when it mentions one by name
 - **Secure per-user accounts** — Firebase Authentication (email/password), with Firestore security rules ensuring users can only access their own data
 
 ## The AI Feature
@@ -38,8 +41,9 @@ This goes beyond a static lookup table — it gives personalized, conversational
 ## Screenshots
 
 ![Home Screen](Screenshots/HomePage.png)
-![Mock Test](Screenshots/Mock.png)
-![Question with AI Explanation](Screenshots/Question.png)
+![Study Notes](Screenshots/StudyNotes.png)
+![Question with Sign Icon](Screenshots/Question.png)
+![Mock Test](Screenshots/MockTest.png)
 ![Ask Ustad Traffic](Screenshots/UstaadTraffic.png)
 
 ## How to Run Locally
