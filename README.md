@@ -32,11 +32,14 @@ LicensePK uses the **Google Gemini API** (`gemini-3.5-flash-lite`) in two ways, 
 This goes beyond a static lookup table — it gives personalized, conversational explanations rather than just showing a pre-written answer key.
 
 ## Tools, Services & Models Used
-- **Frontend:** HTML, CSS (Tailwind via CDN), vanilla JavaScript
-- **AI Model:** Google Gemini API (`gemini-3.5-flash-lite`)
-- **Database & Auth:** Firebase Firestore (per-user mistakes/favorites/quiz history) + Firebase Authentication (email/password)
-- **Hosting:** Vercel (with serverless functions for the AI calls), deployed via GitHub
-- **Version control:** Git & GitHub
+| **Component** | **Technology** |
+| --- | --- |
+| Frontend | HTML, Tailwind CSS (CDN), Vanilla JS |
+| AI Model | Google Gemini API (``gemini-3.5-flash-lite``) |
+| Database & Auth | Firebase Firestore + Firebase Authentication |
+| Hosting | Vercel (serverless functions for AI calls) |
+| Version Control | Git & GitHub |
+
 
 ## Screenshots
 
@@ -71,3 +74,7 @@ LicensePK is designed as the MVP foundation for a larger planned platform, **Raa
 - Multi-country scalability (India, Bangladesh, UAE, Saudi Arabia, UK) via a swappable question-bank/config architecture
 
 A full technical architecture document for this expanded vision has been prepared separately and is available on request.
+
+## License
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
